@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 import tarfile
 import zipfile
 import gzip
@@ -7,7 +8,16 @@ import bz2
 import lzma
 import fnmatch
 
-def load_input_file(input_file_path):
+def get_base_path():
+    """실행 파일의 경로를 반환합니다."""
+    if getattr(sys, 'frozen', False):  # PyInstaller로 패키징된 경우
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(__file__)
+
+def load_input_file(input_file_name):
+    base_path = get_base_path()  # 실행 파일의 경로를 기반으로 파일 경로 설정
+    input_file_path = os.path.join(base_path, input_file_name)
     with open(input_file_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
@@ -115,6 +125,17 @@ def validate_missing_directories(current_path, file_tree, errors):
             if not folder_matched:
                 errors.append(f"오류: '{os.path.join(current_path, folder_name)}' 폴더가 누락되었습니다.")
 
+def write_output_file(errors):
+    base_path = get_base_path()  # 실행 파일 경로 가져오기
+    output_file_path = os.path.join(base_path, 'output.txt')  # 실행 파일 경로에 output.txt 저장
+    with open(output_file_path, 'w', encoding='utf-8') as f:
+        if not errors:
+            f.write('모든 점검이 통과되었습니다. 디렉터리 구조가 파일 트리 구조와 일치합니다.\n')
+        else:
+            for error in errors:
+                f.write(f"{error}\n")
+
+# 기존 validate_file_tree_structure에서 결과 저장 부분 수정
 def validate_file_tree_structure(input_file):
     data = load_input_file(input_file)
     target_directory = data['targetDirectoryPath']
@@ -126,12 +147,7 @@ def validate_file_tree_structure(input_file):
     validate_missing_directories(target_directory, file_tree, errors)
 
     # 결과 출력
-    with open('output.txt', 'w', encoding='utf-8') as f:
-        if not errors:
-            f.write('모든 점검이 통과되었습니다. 디렉터리 구조가 파일 트리 구조와 일치합니다.\n')
-        else:
-            for error in errors:
-                f.write(f"{error}\n")
+    write_output_file(errors)  # 수정된 함수 호출
 
 if __name__ == '__main__':
     validate_file_tree_structure('input.txt')
